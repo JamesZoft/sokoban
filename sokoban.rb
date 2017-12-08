@@ -9,7 +9,7 @@ include Curses
 class Sokoban
 
   attr_accessor :map_state, :game_window, :game_won, :player_pos, :moves,
-                :playing, :gosu_window, :gosu_walk_empty_space_track,
+                :playing, :gosu_walk_empty_space_track,
                 :gosu_walk_push_barrel_track, :gosu_walk_into_wall_track,
                 :gosu_barrel_completed_track, :gosu_game_won_track
 
@@ -18,32 +18,31 @@ class Sokoban
     playing = true
 
     while playing
-      if is_game_won
+      if !is_game_won || moves.zero?
+        draw_map
+        process_input
+      else
         unless @game_won
           @game_window.close
+          refresh
           @game_won = true
           @gosu_game_won_track.play
+          game_won_win = Curses::Window.new 50, 300, 20, 60
+          game_won_win.clear
+          game_won_win.addstr "You win!! Completed in #{@moves} moves! You're kickin' rad!"
+          game_won_win.refresh
+          refresh
         end
-        game_won_win = Curses::Window.new 10, 100, 0, 0
-        game_won_win.clear
-        game_won_win.setpos 4, 15
-        game_won_win.addstr "You win!! Completed in #{@moves} moves! You're kickin' rad!"
-        game_won_win.refresh
-        Curses.refresh
-      else
-        process_input
-        draw_map
       end
     end
   end
 
   def setup_sound_tracks
-    @gosu_window = Gosu::Window.new(1, 1, 0, 0)
-    @gosu_walk_empty_space_track = Gosu::Sample.new(@gosu_window, 'walk_empty_space.wav')
-    @gosu_walk_push_barrel_track = Gosu::Sample.new(@gosu_window, 'walk_push_barrel.wav')
-    @gosu_walk_into_wall_track = Gosu::Sample.new(@gosu_window, 'walk_into_wall.wav')
-    @gosu_barrel_completed_track = Gosu::Sample.new(@gosu_window, 'barrel_completed.wav')
-    @gosu_game_won_track = Gosu::Sample.new(@gosu_window, 'game_won.wav')
+    @gosu_walk_empty_space_track = Gosu::Sample.new('walk_empty_space.wav')
+    @gosu_walk_push_barrel_track = Gosu::Sample.new('walk_push_barrel.wav')
+    @gosu_walk_into_wall_track = Gosu::Sample.new('walk_into_wall.wav')
+    @gosu_barrel_completed_track = Gosu::Sample.new('barrel_completed.wav')
+    @gosu_game_won_track = Gosu::Sample.new('game_won.wav')
   end
 
   def show_menu
@@ -55,6 +54,7 @@ class Sokoban
     menu_window.setpos 20,81
     init_pair(COLOR_YELLOW, COLOR_YELLOW, COLOR_BLACK)
     init_pair(COLOR_RED, COLOR_RED, COLOR_BLACK)
+    init_pair(COLOR_MAGENTA, COLOR_MAGENTA, COLOR_BLACK)
     menu_window.attron(color_pair(COLOR_YELLOW) | A_NORMAL) do
       menu_window.addstr 'Sokoban Reborn:'
     end
@@ -62,7 +62,6 @@ class Sokoban
     menu_window.attron(color_pair(COLOR_RED) | A_NORMAL) do
       menu_window.addstr ' Wrath of the Warehouse!'
     end
-    attron(color_pair(A_NORMAL) | A_NORMAL)
     menu_window.setpos 22,70
     menu_window.addstr 'Choose a level:'
     menu_window.setpos 23,70
@@ -135,9 +134,9 @@ class Sokoban
   end
 
   def initialize_game_window(width, height)
-    @game_window = Curses::Window.new height, (width - 1), 0, 0
+    @game_window = Curses::Window.new height, (width - 1), 20, 70
     @game_window.clear
-    @game_window.addstr convert_map_to_string
+    draw_map
   end
 
   def process_input
@@ -244,7 +243,22 @@ class Sokoban
 
   def draw_map
     @game_window.clear
-    @game_window.addstr convert_map_to_string
+    convert_map_to_string.each_char do |char|
+      case char
+        when ?#
+          @game_window.attron(color_pair(COLOR_MAGENTA) | A_NORMAL) do
+            @game_window.addstr char
+          end
+        when ?o, ?*, ?.
+          @game_window.attron(color_pair(COLOR_YELLOW) | A_NORMAL) do
+            @game_window.addstr char
+          end
+        else
+          @game_window.attron(color_pair(A_NORMAL) | A_NORMAL) do
+            @game_window.addstr char
+          end
+      end
+    end
     @game_window.refresh
   end
 
