@@ -4,11 +4,14 @@ require 'curses'
 require 'gosu'
 require 'matrix'
 
+include Curses
+
 class Sokoban
 
   attr_accessor :map_state, :game_window, :game_won, :player_pos, :moves,
                 :playing, :gosu_window, :gosu_walk_empty_space_track,
-                :gosu_walk_push_barrel_track, :gosu_walk_into_wall_track
+                :gosu_walk_push_barrel_track, :gosu_walk_into_wall_track,
+                :gosu_barrel_completed_track, :gosu_game_won_track
 
   def play
     init show_menu
@@ -19,11 +22,10 @@ class Sokoban
         unless @game_won
           @game_window.close
           @game_won = true
+          @gosu_game_won_track.play
         end
-        Curses.init_screen
-        game_won_win = Curses::Window.new 10, 50, 0, 0
+        game_won_win = Curses::Window.new 10, 100, 0, 0
         game_won_win.clear
-        game_won_win.resize 10, 50
         game_won_win.setpos 4, 15
         game_won_win.addstr "You win!! Completed in #{@moves} moves! You're kickin' rad!"
         game_won_win.refresh
@@ -40,23 +42,38 @@ class Sokoban
     @gosu_walk_empty_space_track = Gosu::Sample.new(@gosu_window, 'walk_empty_space.wav')
     @gosu_walk_push_barrel_track = Gosu::Sample.new(@gosu_window, 'walk_push_barrel.wav')
     @gosu_walk_into_wall_track = Gosu::Sample.new(@gosu_window, 'walk_into_wall.wav')
+    @gosu_barrel_completed_track = Gosu::Sample.new(@gosu_window, 'barrel_completed.wav')
+    @gosu_game_won_track = Gosu::Sample.new(@gosu_window, 'game_won.wav')
   end
 
   def show_menu
-    menu_window = Curses::Window.new 20, 100, 0, 0
-    menu_window.setpos 0,0
-    menu_window.addstr 'Welcome to Sokoban Reborn: Wrath of the Warehouse!'
-    menu_window.setpos 2,0
+    Curses.init_screen
+    Curses.start_color
+    menu_window = Curses::Window.new 50, 500, 0, 0
+    menu_window.setpos 20,70
+    menu_window.addstr 'Welcome to '
+    menu_window.setpos 20,81
+    init_pair(COLOR_YELLOW, COLOR_YELLOW, COLOR_BLACK)
+    init_pair(COLOR_RED, COLOR_RED, COLOR_BLACK)
+    menu_window.attron(color_pair(COLOR_YELLOW) | A_NORMAL) {
+      menu_window.addstr 'Sokoban Reborn:'
+    }
+    menu_window.setpos 20, 96
+    menu_window.attron(color_pair(COLOR_RED) | A_NORMAL) {
+      menu_window.addstr ' Wrath of the Warehouse!'
+    }
+    attron(color_pair(A_NORMAL) | A_NORMAL)
+    menu_window.setpos 22,70
     menu_window.addstr 'Choose a level:'
-    menu_window.setpos 3,0
+    menu_window.setpos 23,70
     menu_window.addstr "1: Peasant's floor"
-    menu_window.setpos 4,0
+    menu_window.setpos 24,70
     menu_window.addstr "2: Peasant Master's floor"
-    menu_window.setpos 5,0
+    menu_window.setpos 25,70
     menu_window.addstr "3: Middle Manager's Lair"
-    menu_window.setpos 6,0
+    menu_window.setpos 26,70
     menu_window.addstr "4: VP's Hollow"
-    menu_window.setpos 7,0
+    menu_window.setpos 27,70
     menu_window.addstr "5: The Grandmaster's Office"
     menu_window.refresh
     menu_window.attron Curses::A_INVIS
@@ -182,6 +199,7 @@ class Sokoban
         case future_crate_char
           when ?.
             set_map_char_at_vector ?*, future_crate_position
+            @gosu_barrel_completed_track.play
           when (?\ )
             set_map_char_at_vector ?o, future_crate_position
           else
