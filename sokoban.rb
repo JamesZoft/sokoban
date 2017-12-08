@@ -38,11 +38,11 @@ class Sokoban
   end
 
   def setup_sound_tracks
-    @gosu_walk_empty_space_track = Gosu::Sample.new('walk_empty_space.wav')
-    @gosu_walk_push_barrel_track = Gosu::Sample.new('walk_push_barrel.wav')
-    @gosu_walk_into_wall_track = Gosu::Sample.new('walk_into_wall.wav')
-    @gosu_barrel_completed_track = Gosu::Sample.new('barrel_completed.wav')
-    @gosu_game_won_track = Gosu::Sample.new('game_won.wav')
+    @gosu_walk_empty_space_track = Gosu::Sample.new('sounds/walk_empty_space.wav')
+    @gosu_walk_push_barrel_track = Gosu::Sample.new('sounds/walk_push_barrel.wav')
+    @gosu_walk_into_wall_track = Gosu::Sample.new('sounds/walk_into_wall.wav')
+    @gosu_barrel_completed_track = Gosu::Sample.new('sounds/barrel_completed.wav')
+    @gosu_game_won_track = Gosu::Sample.new('sounds/game_won.wav')
   end
 
   def show_menu
