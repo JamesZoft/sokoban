@@ -1,31 +1,101 @@
 #!/usr/bin/ruby -w
 
 require 'curses'
+require 'gosu'
 require 'matrix'
 
 class Sokoban
 
-  attr_accessor :map_state, :win, :playing, :player_pos
+  attr_accessor :map_state, :game_window, :game_won, :player_pos, :moves,
+                :playing, :gosu_window, :gosu_walk_empty_space_track,
+                :gosu_walk_push_barrel_track, :gosu_walk_into_wall_track
 
   def play
-    init
+    init show_menu
     playing = true
+
     while playing
-      process_input
-      draw_map
+      if is_game_won
+        unless @game_won
+          @game_window.close
+          @game_won = true
+        end
+        Curses.init_screen
+        game_won_win = Curses::Window.new 10, 50, 0, 0
+        game_won_win.clear
+        game_won_win.resize 10, 50
+        game_won_win.setpos 4, 15
+        game_won_win.addstr "You win!! Completed in #{@moves} moves! You're kickin' rad!"
+        game_won_win.refresh
+        Curses.refresh
+      else
+        process_input
+        draw_map
+      end
     end
   end
 
-  def init
-    @map_state = Array.new(11).map! { Array.new(19).map! { ' ' } }
+  def setup_sound_tracks
+    @gosu_window = Gosu::Window.new(1, 1, 0, 0)
+    @gosu_walk_empty_space_track = Gosu::Sample.new(@gosu_window, 'walk_empty_space.wav')
+    @gosu_walk_push_barrel_track = Gosu::Sample.new(@gosu_window, 'walk_push_barrel.wav')
+    @gosu_walk_into_wall_track = Gosu::Sample.new(@gosu_window, 'walk_into_wall.wav')
+  end
+
+  def show_menu
+    menu_window = Curses::Window.new 20, 100, 0, 0
+    menu_window.setpos 0,0
+    menu_window.addstr 'Welcome to Sokoban Reborn: Wrath of the Warehouse!'
+    menu_window.setpos 2,0
+    menu_window.addstr 'Choose a level:'
+    menu_window.setpos 3,0
+    menu_window.addstr "1: Peasant's floor"
+    menu_window.setpos 4,0
+    menu_window.addstr "2: Peasant Master's floor"
+    menu_window.setpos 5,0
+    menu_window.addstr "3: Middle Manager's Lair"
+    menu_window.setpos 6,0
+    menu_window.addstr "4: VP's Hollow"
+    menu_window.setpos 7,0
+    menu_window.addstr "5: The Grandmaster's Office"
+    menu_window.refresh
+    menu_window.attron Curses::A_INVIS
+    level_chosen = ''
+    level_chosen = process_menu_input menu_window.getch while level_chosen == '' || level_chosen.nil?
+    menu_window.attroff Curses::A_INVIS
+    menu_window.close
+    level_chosen
+  end
+
+  def process_menu_input(input)
+    "maps/level_#{input}.map" if input =~ /[1-5]/
+  end
+
+  def log_message(message)
+    File.open 'log.log', 'a' do |logfile|
+      logfile.puts message.to_s
+    end
+  end
+
+  def init(map)
+    File.open 'log.log', 'w' do |logfile|
+      logfile.puts ''
+    end
+
+    populate_map_state map
+    setup_sound_tracks
+    Curses.refresh
+  end
+
+  def populate_map_state(map)
+    @moves = 0
+    @map_state = Array.new(100).map! { Array.new(100).map! { (?\ ) } }
     max_width = 0
-    max_height = 0
     cur_line = 0
     cur_col = 0
-    File.open 'maps/level_1.map', 'r' do |infile|
+    File.open map, 'r' do |infile|
       while (line = infile.gets)
         max_width = line.to_s.length > max_width ? line.to_s.length : max_width
-        max_height = line.to_s.length > max_height ? line.to_s.length : max_height
         line.chomp.chars.each do |character|
           next if character.nil?
           @map_state[cur_line][cur_col] = character
@@ -36,25 +106,37 @@ class Sokoban
         cur_line += 1
       end
     end
+    resize_map_state max_width, cur_line
+    initialize_game_window max_width, cur_line
+  end
 
-    Curses.init_screen
-    Curses.curs_set 0
-    @win = Curses::Window.new 11, 19, 0, 0
-    @win.addstr convert_map_to_string
-    @win.refresh
+  def resize_map_state(width, height)
+    @map_state = @map_state.each do |row_arr|
+      @map_state[@map_state.index row_arr] = row_arr[0..(width - 2)]
+    end
+    @map_state = @map_state[0..(height - 1)]
+  end
+
+  def initialize_game_window(width, height)
+    @game_window = Curses::Window.new height, (width - 1), 0, 0
+    @game_window.clear
+    @game_window.addstr convert_map_to_string
   end
 
   def process_input
-    input = @win.getch
+    input = @game_window.getch
     case input
       when ?q
-        @win.close
+        @game_window.close
         exit 0
       when ?w, ?a, ?s, ?d
         move input
       when ?r
+        @game_window.close
         init
+        draw_map
     end
+    @moves += 1
   end
 
   def move(direction)
@@ -62,9 +144,22 @@ class Sokoban
     @player_pos = resolve_move future_player_pos, direction
   end
 
+  def play_sound(future_floor_type)
+    case future_floor_type
+      when ?., (?\ )
+        @gosu_walk_empty_space_track.play
+      when ?o, ?*
+        @gosu_walk_push_barrel_track.play
+      when ?#
+        @gosu_walk_into_wall_track.play
+    end
+  end
+
   def resolve_move(future_player_pos, direction)
     # Resolve state of future cells
-    case get_map_char_from_vector future_player_pos
+    future_map_char = get_map_char_from_vector future_player_pos
+    play_sound future_map_char
+    case future_map_char
       when ?.
         set_map_char_at_vector ?+, future_player_pos
       when (?\ )
@@ -78,7 +173,7 @@ class Sokoban
           when (?\ )
             set_map_char_at_vector ?o, future_crate_position
           else
-            return
+            return @player_pos
         end
         set_map_char_at_vector ?@, future_player_pos
       when ?*
@@ -90,11 +185,11 @@ class Sokoban
           when (?\ )
             set_map_char_at_vector ?o, future_crate_position
           else
-            return
+            return @player_pos
         end
         set_map_char_at_vector ?+, future_player_pos
       else
-        # Do nothing
+        return @player_pos
     end
 
     # Resolve state of player cell
@@ -130,9 +225,9 @@ class Sokoban
   end
 
   def draw_map
-    @win.clear
-    @win.addstr convert_map_to_string
-    @win.refresh
+    @game_window.clear
+    @game_window.addstr convert_map_to_string
+    @game_window.refresh
   end
 
   def convert_map_to_string
@@ -145,7 +240,8 @@ class Sokoban
     map_string
   end
 
-end
+  def is_game_won
+    (!convert_map_to_string.include? ?+) && (!convert_map_to_string.include? ?.)
+  end
 
-sokoban = Sokoban.new
-sokoban.play
+end
