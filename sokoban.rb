@@ -55,13 +55,13 @@ class Sokoban
     menu_window.setpos 20,81
     init_pair(COLOR_YELLOW, COLOR_YELLOW, COLOR_BLACK)
     init_pair(COLOR_RED, COLOR_RED, COLOR_BLACK)
-    menu_window.attron(color_pair(COLOR_YELLOW) | A_NORMAL) {
+    menu_window.attron(color_pair(COLOR_YELLOW) | A_NORMAL) do
       menu_window.addstr 'Sokoban Reborn:'
-    }
+    end
     menu_window.setpos 20, 96
-    menu_window.attron(color_pair(COLOR_RED) | A_NORMAL) {
+    menu_window.attron(color_pair(COLOR_RED) | A_NORMAL) do
       menu_window.addstr ' Wrath of the Warehouse!'
-    }
+    end
     attron(color_pair(A_NORMAL) | A_NORMAL)
     menu_window.setpos 22,70
     menu_window.addstr 'Choose a level:'

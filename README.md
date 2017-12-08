@@ -1,5 +1,9 @@
-To run, run:
+To run, first install sdl:
 
-ruby sokoban.rb
+brew install sdl2
+
+To run:
+
+ruby play_sokoban.rb
 
 in the command prompt.
